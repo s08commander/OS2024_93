@@ -76,6 +76,7 @@ cprintf("Illegal instruction caught at 0x%lx\n",tf->epc);
 tf->epc += 4;
 
 断点异常处理：
+
 cprintf("Exception type: breakpoint\n");
 
 cprintf("breakpoint caught at 0x%lx\n",tf->epc);
