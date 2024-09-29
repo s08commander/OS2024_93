@@ -68,13 +68,18 @@ case IRQ_S_TIMER:
 保存stval和scause 等寄存器的目的是记录异常或中断的信息，在处理中断或异常时使用。中断处理完成后，这些寄存器的内容失去作用，所以不需要恢复。
 ### （5）扩展练习3
 非法指令异常处理：
+
 cprintf("Exception type:Illegal instruction\n");
+
 cprintf("Illegal instruction caught at 0x%lx\n",tf->epc);
+
 tf->epc += 4;
 
 断点异常处理：
 cprintf("Exception type: breakpoint\n");
+
 cprintf("breakpoint caught at 0x%lx\n",tf->epc);
+
 tf->epc += 2 ;
 
 指导书中提到的mret为常规指令，长度为4字节，需要将 tf->epc增加4字节，跳过引发异常的指令。断点指令ebreak为压缩指令，长度是2字节，需要将 tf->epc增加2字节，跳过引发异常的指令。
