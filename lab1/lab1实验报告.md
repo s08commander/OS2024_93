@@ -71,10 +71,12 @@ case IRQ_S_TIMER:
 cprintf("Exception type:Illegal instruction\n");
 cprintf("Illegal instruction caught at 0x%lx\n",tf->epc);
 tf->epc += 4;
+
 断点异常处理：
 cprintf("Exception type: breakpoint\n");
 cprintf("breakpoint caught at 0x%lx\n",tf->epc);
 tf->epc += 2 ;
+
 指导书中提到的mret为常规指令，长度为4字节，需要将 tf->epc增加4字节，跳过引发异常的指令。断点指令ebreak为压缩指令，长度是2字节，需要将 tf->epc增加2字节，跳过引发异常的指令。
 运行之后发现没有预期的输出，原因是没有引发对应的异常，在初始化的代码init.c里插入异常：
 
