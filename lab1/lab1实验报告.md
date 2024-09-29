@@ -38,7 +38,7 @@
 指令tail kern_init 从 kern_entry 跳转到 kern_init，开始执行kern_init，并且不返回kern_entry。这样做的目的是直接进入内核的初始化阶段。
 ### （2）练习2
 完善中断处理函数：
-</code></pre class="language-bash">
+```
 case IRQ_S_TIMER:
             clock_set_next_event();
             if (++ticks % TICK_NUM == 0)
@@ -46,8 +46,9 @@ case IRQ_S_TIMER:
                 print_ticks();
             }
             break;
-</code></pre>
+```
 调用clock_set_next_event()函数设置下一次时钟中断事件，判断++ticks是否为100，即是否遇到了100次时钟中断，如果是，则调用print_ticks()函数，输出“100 ticks”。
+
 定时器中断处理的流程为： 初始化时，先设置sstatus的supervisor中断使能位；clock_set_next_event()函数通过OpenSBI提供的接口set_sbi_timer()，实现每秒100次时钟中断。根据设置，“所有中断都跳到alltraps处理”，触发时钟中断时，trapentry.S中的__alltraps进行保存上下文，并跳转到trap.c的中断处理函数trap()。trap()函数参数为切换前上下文的结构体，调用trap_dispatch函数，将中断异常和异常处理的工作分发给两个函数interrupt_handler和exception_handler。interrupt_handler函数根据中断类型，输出对应文字，设置下一次时钟中断。中断处理结束后，返回trapentry.S，执行__trapret，恢复之前保存的寄存器和状态信息，从S态中断返回到U态。
 ### （3）扩展练习1
 异常处理流程：
