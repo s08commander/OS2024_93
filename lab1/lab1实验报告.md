@@ -38,7 +38,7 @@
 指令tail kern_init 从 kern_entry 跳转到 kern_init，开始执行kern_init，并且不返回kern_entry。这样做的目的是直接进入内核的初始化阶段。
 ### （2）练习2
 完善中断处理函数：
-</code></pre>
+</code></pre class="language-bash">
 case IRQ_S_TIMER:
             clock_set_next_event();
             if (++ticks % TICK_NUM == 0)
