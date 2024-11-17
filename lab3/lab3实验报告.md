@@ -4,8 +4,38 @@
 申展2211321        
 克梦宇2211765
 
-## （1）练习1
+## （1）练习1 理解基于FIFO的页面替换算法:描述FIFO页面置换算法下，一个页面从被换入到被换出的过程中，会经过代码里哪些函数/宏的处理（或者说，需要调用哪些函数/宏），并用简单的一两句话描述每个函数在过程中做了什么？
+一个页面从被换入到被换出的过程如下：
 
+换入:
+
+1.alloc_page()（/kern/mm/pmm.c中）：为被换入的页面分配一个空闲的物理页面。它通过调用具体的 pmm_manager->alloc_pages 来在内存中分配物理页
+
+2.get_pte()：根据虚拟地址 addr 查找该地址对应 PTE，此时不需要创建页表项
+
+3.swapfs_read()：从磁盘的交换空间读取页面内容，并将数据加载到分配的物理页面中
+
+当内存不足, 需要换出页面时:
+
+1.alloc_pages()： 如果内存不足, 它调用 swap_out 来调用页面置换算法
+
+2.swap_out()：FIFO算法实现的核心，它调用 sm->swap_out_victim()函数指针，指向FIFO页面置换算法的 swap_out_victim 函数。_fifo_swap_out_victim将从内存中选择一个页面进行换出，FIFO策略的实现靠“替换链表头元素的前一个元素来”实现。这是因为在FIFO的数据结构中，当在_fifo_init_mm()中完成初始化时，将mm->sm_priv 设置为指向链表头部 pra_list_head. 而每次新增一个可交换页面时, 即在 _fifo_map_swappable() 中, 会将进入内存的页面加入链表的头部 list_add(head, entry)。因此在 swap_out_victim() 中, 根据 FIFO 思想: 最先进入内存的页面将最先被替换, 首先获取 FIFO 链表的头部, 然后使用 list_prev(head) 返回双向链表中头元素的前一个元素, 即链表的最后一个元素, 即"最早进入的页面"。接下来，使用 list_del(entry) 从链表中删除受害者页面节点, 再通过 le2page(entry, pra_page_link) 宏将链表节点 entry 转换回其对应的 Page 结构体, 得到 Page 后即可进行后续操作, 完成物理页的查找和释放。不断换出页面直到 alloc_pages 能成功分配足够数量的物理页.
+
+3.获取 FIFO 链表头部 pra_list_head
+
+4.宏 list_prev(head)： 返回双向链表中头元素的前一个元素, 即链表的最后一个元素
+
+5.宏 list_del(entry) ：从链表中删除受害者页面节点
+
+6.宏 le2page(entry, pra_page_link) 宏：将链表节点 entry 转换回其对应的 Page 结构体并返回
+
+7.得到要换出的页的虚拟地址 v 后, get_pte(mm->pgdir, v, 0) 获取该地址在页表中的页表项
+
+8.swapfs_write() ：将被替换页面的内容写入交换文件
+
+成功: free_page() 释放对应物理页面
+
+失败: map_swappable() 将该页面标记为可换出页面，是指向 _fifo_map_swappable的函数指针, 将可换出页面添加到链表头部.
 
 
 ## （2）练习2
