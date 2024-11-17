@@ -45,24 +45,30 @@
 这五个函数实现了first-fit算法的基本流程。
 
 ## 练习2：实现 Best-Fit 连续物理内存分配算法（需要编程）
-在完成练习一后，参考kern/mm/default_pmm.c对First Fit算法的实现，编程实现Best Fit页面分配算法，算法的时空复杂度不做要求，能通过测试即可。
-请在实验报告中简要说明你的设计实现过程，阐述代码是如何对物理内存进行分配和释放，并回答如下问题：
-- 你的 Best-Fit 算法是否有进一步的改进空间？
+### 链表初始化best_fit_init_memmap() ###
 
-## 扩展练习Challenge：buddy system（伙伴系统）分配算法（需要编程）
+遍历从 base 开始的 n 个页块，将每个页的 flags 和 property 清零，并将引用计数置为 0。
+将整个 base 页块设置为一个连续的空闲区域，其大小为 n 页。
+更新空闲页数 nr_free。
+遍历 free_list，根据地址大小将 base 按升序插入到空闲链表中（保持链表有序）。
 
-Buddy System算法把系统中的可用存储空间划分为存储块(Block)来进行管理, 每个存储块的大小必须是2的n次幂(Pow(2, n)), 即1, 2, 4, 8, 16, 32, 64, 128...
+### 分配页best_fit_alloc_pages() ###
 
- -  参考[伙伴分配器的一个极简实现](http://coolshell.cn/articles/10427.html)， 在ucore中实现buddy system分配算法，要求有比较充分的测试用例说明实现的正确性，需要有设计文档。
- 
-## 扩展练习Challenge：任意大小的内存单元slub分配算法（需要编程）
+遍历 free_list 找到最小合适的页块（p->property >= n 且 p->property 最小）。
+如果找到合适的页块，执行以下步骤：
+从链表中移除该页块。
+如果页块比需求大，将剩余部分拆分为一个新的空闲块，并插入链表。
+更新空闲页数 nr_free，清除分配的页块的属性标记。
+如果没有找到合适的页块，返回 NULL。
 
-slub算法，实现两层架构的高效内存单元分配，第一层是基于页大小的内存分配，第二层是在第一层基础上实现基于任意大小的内存分配。可简化实现，能够体现其主体思想即可。
+### 释放页best_fit_free_pages() ###
 
- - 参考[linux的slub分配算法/](http://www.ibm.com/developerworks/cn/linux/l-cn-slub/)，在ucore中实现slub分配算法。要求有比较充分的测试用例说明实现的正确性，需要有设计文档。
+遍历释放的页块，将其属性（property）和标记清零。
+设置 base 页块的大小为 n 页，标记为空闲，并插入到 free_list 的正确位置。
+检查链表中前后相邻的页块：
+如果前一个页块与当前页块连续（p + p->property == base），将其合并。
+如果后一个页块与当前页块连续（base + base->property == p），将其合并。
 
 ## 扩展练习Challenge：硬件的可用物理内存范围的获取方法（思考题）
-  - 如果 OS 无法提前知道当前硬件的可用物理内存范围，请问你有何办法让 OS 获取可用物理内存范围？
-
-
-> Challenges是选做，完成Challenge的同学可单独提交Challenge。完成得好的同学可获得最终考试成绩的加分。
+ 1.通过设备树（Device Tree, DTB）。QEMU 在启动时会向操作系统传递一个设备树（DTB 文件）
+ 2.OpenSBI通常会提供内存布局信息，例如通过 struct sbi_scratch 或其他引导数据结构传递。
