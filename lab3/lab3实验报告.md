@@ -42,6 +42,32 @@
 
 ## （2）练习2
 #### 解释get_pte()中代码的相似性：
+```c
+pde_t *pdep1 = &pgdir[PDX1(la)];
+if (!(*pdep1 & PTE_V)) {
+    struct Page *page;
+    if (!create || (page = alloc_page()) == NULL) {
+        return NULL;
+    }
+    set_page_ref(page, 1);
+    uintptr_t pa = page2pa(page);
+    memset(KADDR(pa), 0, PGSIZE);
+    *pdep1 = pte_create(page2ppn(page), PTE_U | PTE_V);
+}
+
+pde_t *pdep0 = &((pde_t *)KADDR(PDE_ADDR(*pdep1)))[PDX0(la)];
+if (!(*pdep0 & PTE_V)) {
+    struct Page *page;
+    if (!create || (page = alloc_page()) == NULL) {
+        return NULL;
+    }
+    set_page_ref(page, 1);
+    uintptr_t pa = page2pa(page);
+    memset(KADDR(pa), 0, PGSIZE);
+    *pdep0 = pte_create(page2ppn(page), PTE_U | PTE_V);
+}
+```
+
 分页机制的主要差异在于页表层数和线性地址的解析方式，对于SV32、SV39和SV48这三种分页方式，它们的主要区别在于SV32有两级页表，SV39有三级页表，SV48有四级页表，但是它们共享相同的基本架构，每一级的页表结构和操作逻辑相同：都是检查当前页表项是否有效，无效时分配新的物理页并初始化。因此可以看到get_pte()中分别对两级页表pdep1和pdep0执行相同的操作。在多级递归过程中，也是由上一级指向下一级页表的，因此每一级的初始化逻辑也是类似的。
 
 #### 拆开/合并的价值：
