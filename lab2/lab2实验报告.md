@@ -71,4 +71,5 @@
 
 ## 扩展练习Challenge：硬件的可用物理内存范围的获取方法（思考题）
  1.通过设备树（Device Tree, DTB）。QEMU 在启动时会向操作系统传递一个设备树（DTB 文件）
+ 
  2.OpenSBI通常会提供内存布局信息，例如通过 struct sbi_scratch 或其他引导数据结构传递。
