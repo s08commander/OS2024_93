@@ -595,7 +595,7 @@ load_icode(unsigned char *binary, size_t size) {
     // Keep sstatus
     uintptr_t sstatus = tf->status;
     memset(tf, 0, sizeof(struct trapframe));
-    /* LAB5:EXERCISE1 YOUR CODE
+    /* LAB5:EXERCISE1 YOUR CODE 2211321 申展
      * should set tf->gpr.sp, tf->epc, tf->status
      * NOTICE: If we set trapframe correctly, then the user level process can return to USER MODE from kernel. So
      *          tf->gpr.sp should be user stack top (the value of sp)
@@ -603,8 +603,10 @@ load_icode(unsigned char *binary, size_t size) {
      *          tf->status should be appropriate for user program (the value of sstatus)
      *          hint: check meaning of SPP, SPIE in SSTATUS, use them by SSTATUS_SPP, SSTATUS_SPIE(defined in risv.h)
      */
-
-
+    tf->gpr.sp = USTACKTOP;//将sp设置为用户栈顶
+    tf->epc = elf->e_entry;//将epc设置为文件的入口地址
+    tf->status = sstatus & ~(SSTATUS_SPP | SSTATUS_SPIE);//SPP位表示进程当前是否运行在内核模式：通过清除SPP，提示当前进程即将从内核模式切换到用户模式执行
+                                                         //SPIE位清零：表示不启用中断
     ret = 0;
 out:
     return ret;
