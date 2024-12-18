@@ -166,9 +166,6 @@ int copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end,
 
 
 #### 扩展练习 Challenge：
-1. 实现 Copy on Write （COW）机制
-
-
 2. 说明该用户程序是何时被预先加载到内存中的？与我们常用操作系统的加载有何区别，原因是什么？
  
 - 用户程序被加载的时间：实际上通过make file中的make文件里面最后一步的ld命令加载的，hello 应用程序的执行码 obj/__user_hello.out 连接在了 ucore kernel 的末尾。并且通过两个全局变量记录了hello应用程序的起始位置和大小。所以它是和和 ucore 内核一起被bootloader 加载到内存里中的。
