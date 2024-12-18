@@ -103,13 +103,28 @@ alloc_proc(void) {
      *       uint32_t flags;                             // Process flag
      *       char name[PROC_NAME_LEN + 1];               // Process name
      */
-
+    proc->state = PROC_UNINIT;
+    proc->pid = -1;
+    proc->runs = 0;
+    proc->kstack = 0;
+    proc->need_resched = 0;
+    proc->parent = NULL;
+    proc->mm = NULL;
+    memset(&(proc->context), 0, sizeof(struct context));
+    proc->tf = NULL;
+    proc->cr3 = boot_cr3;
+    proc->flags = 0;
+    memset(proc->name, 0, PROC_NAME_LEN + 1);
      //LAB5 YOUR CODE : (update LAB4 steps)
      /*
      * below fields(add in LAB5) in proc_struct need to be initialized  
      *       uint32_t wait_state;                        // waiting state
      *       struct proc_struct *cptr, *yptr, *optr;     // relations between processes
      */
+    proc->wait_state = 0;
+    proc->cptr = NULL;           // 子进程指针
+    proc->yptr = NULL;           // 兄弟进程指针
+    proc->optr = NULL;           // 父进程指针
     }
     return proc;
 }
@@ -206,6 +221,18 @@ proc_run(struct proc_struct *proc) {
         *   lcr3():                   Modify the value of CR3 register
         *   switch_to():              Context switching between two processes
         */
+        bool intr_flag;
+        struct proc_struct *prev = current, *next = proc;
+
+        local_intr_save(intr_flag);
+        {
+            // 切换当前进程为要运行的进程
+            current = proc;
+            // 切换页表，使用新进程的地址空间
+            lcr3(proc->cr3);
+            switch_to(&(prev->context), &(next->context));
+        }
+        local_intr_restore(intr_flag);
 
     }
 }
@@ -279,6 +306,7 @@ put_kstack(struct proc_struct *proc) {
 // setup_pgdir - alloc one page as PDT
 static int
 setup_pgdir(struct mm_struct *mm) {
+
     struct Page *page;
     if ((page = alloc_page()) == NULL) {
         return -E_NO_MEM;
@@ -387,6 +415,32 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
      *   nr_process:   the number of process set
      */
 
+    proc = alloc_proc();
+    if(proc == NULL){
+        goto fork_out;
+    }
+
+    if(proc->wait_state==0){
+        proc->parent = current;
+        proc->wait_state=WT_CHILD;
+    }
+    else{goto bad_fork_cleanup_proc;}
+
+    if(setup_kstack(proc) !=0){goto bad_fork_cleanup_proc;}
+    if(copy_mm(clone_flags,proc)!=0){goto bad_fork_cleanup_kstack;}
+    copy_thread(proc,stack,tf);
+
+    bool trap_flag;
+    local_intr_save(trap_flag);
+    {
+    proc->pid = get_pid();
+    set_links(proc);
+    hash_proc(proc);
+    }
+    local_intr_restore(trap_flag);
+    wakeup_proc(proc);
+    ret = proc->pid;
+
     //    1. call alloc_proc to allocate a proc_struct
     //    2. call setup_kstack to allocate a kernel stack for child process
     //    3. call copy_mm to dup OR share mm according clone_flag
@@ -403,7 +457,8 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     *    update step 1: set child proc's parent to current process, make sure current process's wait_state is 0
     *    update step 5: insert proc_struct into hash_list && proc_list, set the relation links of process
     */
- 
+
+ret = proc->pid;  // 返回子进程的pid
 fork_out:
     return ret;
 
@@ -595,7 +650,7 @@ load_icode(unsigned char *binary, size_t size) {
     // Keep sstatus
     uintptr_t sstatus = tf->status;
     memset(tf, 0, sizeof(struct trapframe));
-    /* LAB5:EXERCISE1 YOUR CODE 2211321 申展
+    /* LAB5:EXERCISE1 2211321
      * should set tf->gpr.sp, tf->epc, tf->status
      * NOTICE: If we set trapframe correctly, then the user level process can return to USER MODE from kernel. So
      *          tf->gpr.sp should be user stack top (the value of sp)
@@ -603,10 +658,12 @@ load_icode(unsigned char *binary, size_t size) {
      *          tf->status should be appropriate for user program (the value of sstatus)
      *          hint: check meaning of SPP, SPIE in SSTATUS, use them by SSTATUS_SPP, SSTATUS_SPIE(defined in risv.h)
      */
-    tf->gpr.sp = USTACKTOP;//将sp设置为用户栈顶
-    tf->epc = elf->e_entry;//将epc设置为文件的入口地址
-    tf->status = sstatus & ~(SSTATUS_SPP | SSTATUS_SPIE);//SPP位表示进程当前是否运行在内核模式：通过清除SPP，提示当前进程即将从内核模式切换到用户模式执行
-                                                         //SPIE位清零：表示不启用中断
+    tf->gpr.sp = USTACKTOP;
+    tf->epc = elf->e_entry;
+    // Set SPP to 0 so that we return to user mode
+    // Set SPIE to 1 so that we can handle interrupts
+    tf->status = (sstatus & ~SSTATUS_SPP) | SSTATUS_SPIE;
+
     ret = 0;
 out:
     return ret;
