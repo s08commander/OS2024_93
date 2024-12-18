@@ -344,13 +344,22 @@ void exit_range(pde_t *pgdir, uintptr_t start, uintptr_t end) {
  *
  * CALL GRAPH: copy_mm-->dup_mmap-->copy_range
  */
+/* copy_range - 将一个进程 A 的内存内容（起点、终点）复制到另一个进程 B。
+ * @to：进程 B 的页面目录地址
+ * @from: 进程 A 的页面目录地址
+ * @share：表示复制或共享的标志。我们只使用 dup 方法，所以不使用。
+ *
+ * CALL GRAPH: copy_mm-->dup_mmap-->copy_range
+ */
 int copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end,
                bool share) {
     assert(start % PGSIZE == 0 && end % PGSIZE == 0);
     assert(USER_ACCESS(start, end));
     // copy content by page unit.
+    // 按页面单元复制内容。
     do {
         // call get_pte to find process A's pte according to the addr start
+        // 调用 get_pte，根据开始地址查找进程 A 的 pte（页表）
         pte_t *ptep = get_pte(from, start, 0), *nptep;
         if (ptep == NULL) {
             start = ROUNDDOWN(start + PTSIZE, PTSIZE);
@@ -358,14 +367,17 @@ int copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end,
         }
         // call get_pte to find process B's pte according to the addr start. If
         // pte is NULL, just alloc a PT
+        // 调用 get_pte，根据开始地址查找进程 B 的 pte。如果 pte 为空，只需分配一个 PT。
         if (*ptep & PTE_V) {
             if ((nptep = get_pte(to, start, 1)) == NULL) {
                 return -E_NO_MEM;
             }
             uint32_t perm = (*ptep & PTE_USER);
             // get page from ptep
+            // 获取来自 ptep 的页面
             struct Page *page = pte2page(*ptep);
             // alloc a page for process B
+            // 为进程 B 分配页面
             struct Page *npage = alloc_page();
             assert(page != NULL);
             assert(npage != NULL);
@@ -388,7 +400,24 @@ int copy_range(pde_t *to, pde_t *from, uintptr_t start, uintptr_t end,
              * (3) memory copy from src_kvaddr to dst_kvaddr, size is PGSIZE
              * (4) build the map of phy addr of  nage with the linear addr start
              */
-
+            /* LAB5:EXERCISE2 YOUR CODE
+             * 复制页面内容到 npage，使用线性地址 start 构建 nage 的物理地址映射
+             *
+             * 一些有用的宏和定义，你可以在以下实现中使用它们。
+             * 宏或函数：
+             *    page2kva(struct Page *page): 返回 page 管理的内存的内核虚拟地址（参见 pmm.h）
+             *    page_insert: 使用线性地址 la 构建一个 Page 的物理地址映射
+             *    memcpy: 典型的内存复制函数
+             *
+             * (1) 查找 src_kvaddr: 页面的内核虚拟地址
+             * (2) 查找 dst_kvaddr: npage 的内核虚拟地址
+             * (3) 从 src_kvaddr 复制到 dst_kvaddr，大小为 PGSIZE
+             * (4) 使用线性地址 start 构建 nage 的物理地址映射
+             */
+            void * kva_src = page2kva(page);
+            void * kva_dst = page2kva(npage);
+            memcpy(kva_dst, kva_src, PGSIZE);
+            ret = page_insert(to, npage, start, perm);
 
             assert(ret == 0);
         }
